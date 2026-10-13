@@ -1,0 +1,179 @@
+{
+  "app_name": "StudyAdda Dhanbad",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "A professional, fast, and distraction-free exam preparation environment.",
+  "color": {
+    "surface": "#FFFFFF",
+    "onSurface": "#0B152A",
+    "surfaceSecondary": "#F5F7FA",
+    "onSurfaceSecondary": "#0B152A",
+    "surfaceTertiary": "#E5E9F0",
+    "onSurfaceTertiary": "#4C566A",
+    "surfaceInverse": "#0B152A",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#0B152A",
+    "onBrand": "#FFFFFF",
+    "brandPrimary": "#0B152A",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#D4AF37",
+    "onBrandSecondary": "#0B152A",
+    "brandTertiary": "#FDF8E8",
+    "onBrandTertiary": "#8A6D1C",
+    "success": "#166534",
+    "onSuccess": "#F0FDF4",
+    "warning": "#B45309",
+    "onWarning": "#FFFBEB",
+    "error": "#991B1B",
+    "onError": "#FEF2F2",
+    "border": "#E5E9F0",
+    "borderStrong": "#CBD5E1",
+    "divider": "#F1F5F9",
+    "muted": "#64748B"
+  },
+  "typography": {
+    "displayFontFamily": "Hind",
+    "textFontFamily": "Hind",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room for long Devanagari and English question texts. Clear touch targets. Stick to systematic multiples.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "false",
+    "do's": [
+      "Avoid glassmorphism to prioritize absolute text legibility and low-end Android device performance."
+    ],
+    "dont's": [
+      "No blur over text content, no heavy glass headers."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "Dashboard overview providing quick resume access to active study sessions, readiness metrics, and clear exam category cards.",
+      "states": {
+        "loading": "Centered spinner with a subtle brand tint",
+        "empty": "Illustration of a student studying, encouraging the user to select an exam category",
+        "error": "Readable 'Unable to load dashboard' message with a primary Retry CTA"
+      },
+      "layout": "Top section: User greeting and daily streak (gamification). Middle: 'Resume Study' / active sessions. Bottom grid: Clear exam category cards (Bank, SSC, Railway) spanning screen width with safe touch areas."
+    },
+    {
+      "name": "PracticeModeSelection",
+      "purpose": "Screen to select practice type (PYQ, Mock, Custom) and chapters via multi-select.",
+      "states": {
+        "loading": "Skeleton loaders for chapter list",
+        "empty": "No chapters available for the selected exam",
+        "error": "Error fetching chapters with Retry button"
+      },
+      "layout": "Vertical list of practice modes at the top. Below, an expandable accordion or checklist for multi-select chapter picking. Sticky 'Start Practice' primary CTA at the bottom."
+    },
+    {
+      "name": "QuizEngine",
+      "purpose": "Core exam taking experience. Distraction-free, timer-led, with bilingual toggle.",
+      "states": {
+        "loading": "Loading question bank...",
+        "empty": "N/A",
+        "error": "Failed to load questions. Retry CTA."
+      },
+      "layout": "Global bottom tabs are hidden. Top slim context bar: Timer, Question Progress (e.g., 5/30), and Bilingual toggle icon. Main body: Scrollable Question text with 4 distinct option cards. Options should highlight on selection (Subtle gold outline). Bottom fixed bar: Previous, Next, and 'Mark for Review' button. 'Question Palette' accessible via a Bottom Sheet to jump between questions."
+    },
+    {
+      "name": "QuizResult",
+      "purpose": "Analytics summary immediately following test submission.",
+      "states": {
+        "loading": "Calculating score...",
+        "empty": "No result data available",
+        "error": "Error submitting test"
+      },
+      "layout": "Hero section: Circular score ring with accuracy and time taken metrics. Below: Tabular breakdown of Correct, Incorrect, and Unattempted. Sticky 'Review Solutions' CTA at the bottom."
+    },
+    {
+      "name": "ReviewMode",
+      "purpose": "Detailed solution view comparing user answers to correct ones.",
+      "states": {
+        "loading": "Loading solutions...",
+        "empty": "N/A",
+        "error": "Error loading solutions"
+      },
+      "layout": "Similar to QuizEngine but read-only. Options show green for correct, red for incorrect user choice. Below options: A 'Detailed Solution' card with comprehensive text and source info."
+    },
+    {
+      "name": "Profile",
+      "purpose": "User management, settings, performance history, and bookmarked questions.",
+      "states": {
+        "loading": "Loading profile...",
+        "empty": "No test history yet.",
+        "error": "Error loading profile data"
+      },
+      "layout": "Top: Avatar and Name. List items for 'Test History', 'Bookmarks', 'Language Preference', and 'Sign Out'."
+    },
+    {
+      "name": "AdminDashboard",
+      "purpose": "Private area for managing exams, bulk CSV uploads, and question CRUD.",
+      "states": {
+        "loading": "Loading admin stats...",
+        "empty": "No exams configured.",
+        "error": "Not authorized / Error loading"
+      },
+      "layout": "Stat cards overview. List of Exam Categories. Floating Action Button (FAB) to 'Add New Question' or 'Upload CSV'. Use standard utility list-views."
+    }
+  ],
+  "images": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1646523773249-23fea630a7a5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMG5hdnklMjBibHVlJTIwYW5kJTIwZ29sZCUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzkxODUxMzg3fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract navy blue and gold textured background"
+    },
+    "study_illustration": {
+      "url": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwxfHxzdHVkZW50JTIwc3R1ZHlpbmclMjBleGFtJTIwcHJlcGFyYXRpb258ZW58MHx8fHwxNzkxODUxMzg3fDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Student studying and preparing for exams"
+    },
+    "empty_state": {
+      "url": "https://images.unsplash.com/photo-1631823794808-b359f1132de9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMGxpc3QlMjBpbGx1c3RyYXRpb258ZW58MHx8fGJsdWV8MTc5MTg1MTM4N3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Empty list graphic"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Prioritize Absolute Legibility: Use `Hind` font with generous line-heights to support Devanagari scripts flawlessly without cropping top/bottom matras.",
+    "Brand Compliance: Use the Navy Blue (#0B152A) as the dominant primary brand/surfaceInverse color and pure White for the main background. Use Gold (#D4AF37) exclusively for accents like selected state outlines, badges, and premium indications.",
+    "Quiz Engine Layout: Ensure the Quiz screen hides global navigation (bottom tabs) and replaces it with a slim, context-aware header (Timer, Title, Progress, Bilingual Toggle).",
+    "Question Palette: Implement a Bottom Sheet (`@gorhom/bottom-sheet`) in the Quiz Engine for the Question Palette, allowing users to jump between questions, view answered/unanswered/marked-for-review status at a glance.",
+    "Disable Glassmorphism: This app targets extreme utility and potentially low-end Android devices. Stick to solid `surfaceSecondary` and `surfaceTertiary` with shadow tier 1 instead of expensive blurs.",
+    "Sticky Primary CTAs: Always use sticky bottom CTAs in a `KeyboardAvoidingView` or outside scroll views for major actions (Start Practice, Submit Test, Save Profile).",
+    "Haptics: Provide light haptic feedback on MCQ option selection, next/prev navigation, and a success haptic on test submission."
+  ]
+}

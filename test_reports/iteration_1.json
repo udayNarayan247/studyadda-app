@@ -1,0 +1,43 @@
+{
+  "summary": "First test iteration for StudyAdda Dhanbad. Backend: 21/21 pytest tests pass (catalog, auth, test sessions with negative-marking scoring, bookmarks CRUD, admin CRUD + bulk CSV, student 403 on admin, guest start). Frontend mobile UI (390x844): login + Continue as Guest, EN/HI language toggle, Practice tab -> exam IBPS-PO -> chapter mode -> quant -> percentage -> start -> quiz (options, mark, palette, next, submit + confirm) -> result screen with score & chapter stats -> review with solutions. Admin flow via localStorage token: mixed practice (4 chapters) submitted, History tab lists it, Profile -> Admin Dashboard (stats 2 users / 35 Q / 1 verified / 2 tests, question list, delete buttons) -> Add Question form renders all fields. Bookmarks screen renders empty state. Negative marking 0.25 confirmed (-0.75 for 3 wrong, -1.5 for 6 wrong in mixed test).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "admin/question-form", "issue": "Error toast 'Unexpected text node: . A text node cannot be a child of a <View>' appears on screen load. Indicates a stray text/whitespace child inside a View. Investigate the chip-row ScrollView blocks and conditional <>...</> fragments (lines 75-86, 91-97 of /app/frontend/app/admin/question-form.tsx)", "testID": "qf-text-en area", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "quiz", "issues": ["Submit button only appears on last question which is correct, but after a non-last-question submit via close-btn, confirm modal works fine. UI is clean."]}
+    ],
+    "react_native_issues": [
+      {"component": "global", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Likely from a third-party component or inline usage. Low priority but should be migrated. Reference: console log on initial app load."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_studyadda_api.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Investigate and fix 'Unexpected text node' warning on /app/frontend/app/admin/question-form.tsx — likely a stray space/newline inside a <View> or between JSX fragments.",
+    "Migrate deprecated props.pointerEvents to style.pointerEvents wherever used (search for pointerEvents=... in codebase)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is a single ~890-line file; consider splitting into routers (auth, catalog, tests, admin, seed) for maintainability but not blocking.",
+    "/api/tests/start accepts chapter mode with any number of chapter_ids; business rule says chapter=1 and mixed=exactly 4 chapters, but enforcement is only on the frontend. Backend-side validation would be safer.",
+    "Guest start endpoint does not enforce question_count limits (clients could request very large counts). Consider capping on server."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py (new)",
+    "/app/backend/tests/test_studyadda_api.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "~95%"},
+  "seed_data_creation": "Did not create new seed data. Used existing pre-seeded admin/student sessions and 34 sample questions (plus 1 TEST_ CSV-inserted question that was auto-cleaned via admin DELETE in test flow; one leftover TEST_ bulk-CSV question remained since bulk-csv test did not delete it — low priority, source='TEST').",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests at /app/backend/tests/test_studyadda_api.py run with pytest; need EXPO_PUBLIC_BACKEND_URL env (defaults to preview URL). Test tokens Bearer test_admin_token_123 / test_student_token_123 are pre-seeded in MongoDB and valid 30 days. Frontend auth is done via localStorage: window.localStorage.setItem('sa_session_token', JSON.stringify('test_admin_token_123')) then reload. Mobile viewport 390x844.",
+  "rca_of_issue": "The 'Unexpected text node' warning on the Add Question screen is a React Native web rendering issue — some text (perhaps a comma or whitespace from a conditional expression) is being rendered as a direct child of a <View>. Check lines 75-97 of /app/frontend/app/admin/question-form.tsx especially the fragment `<>...</>` wrapper and `{subjectId && (...)}` conditional returns. Non-blocking; functionality works."
+}
