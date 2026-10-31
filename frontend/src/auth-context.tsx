@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { api, saveToken, readToken, clearToken, setApiToken } from "./api";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -19,6 +20,7 @@ type AuthContextType = {
   user: AuthUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signInAsGuest: () => void;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -143,6 +145,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [exchangeSessionId]);
 
+  const signInWithApple = useCallback(async () => {
+    const cred = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+    if (!cred.identityToken) throw new Error("Apple did not return an identity token");
+    // Apple sends name/email only on the very first sign-in
+    const fullName = [cred.fullName?.givenName, cred.fullName?.familyName].filter(Boolean).join(" ") || null;
+    const res = await api<{ session_token: string; user: AuthUser }>("/auth/apple", {
+      method: "POST",
+      body: JSON.stringify({ identity_token: cred.identityToken, full_name: fullName, email: cred.email }),
+    });
+    await saveToken(res.session_token);
+    setApiToken(res.session_token);
+    setIsGuest(false);
+    setUser(res.user);
+  }, []);
+
   const signInAsGuest = useCallback(() => {
     setIsGuest(true);
     setUser(null);
@@ -182,7 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInAsGuest, signOut, deleteAccount, refreshUser, setLanguage, isGuest }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithApple, signInAsGuest, signOut, deleteAccount, refreshUser, setLanguage, isGuest }}>
       {children}
     </AuthContext.Provider>
   );

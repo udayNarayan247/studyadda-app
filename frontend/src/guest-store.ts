@@ -1,5 +1,21 @@
 // In-memory test session for guest users (not persisted, not synced).
 import { api } from "./api";
+import { storage } from "@/src/utils/storage";
+
+const SEEN_KEY = "sa_guest_seen";
+const SEEN_MAX = 5000;
+
+// Question ids this guest has already been given, oldest first (kept on device only).
+export async function getGuestSeen(): Promise<string[]> {
+  const raw = (await storage.getItem(SEEN_KEY, "")) as string | null;
+  return raw ? raw.split(",").filter(Boolean) : [];
+}
+
+export async function addGuestSeen(ids: string[]) {
+  const fresh = new Set(ids);
+  const kept = (await getGuestSeen()).filter((id) => !fresh.has(id));
+  await storage.setItem(SEEN_KEY, [...kept, ...ids].slice(-SEEN_MAX).join(","));
+}
 
 let guestData: { session: any; questions: any[] } | null = null;
 

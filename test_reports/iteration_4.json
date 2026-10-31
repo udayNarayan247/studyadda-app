@@ -1,0 +1,41 @@
+{
+  "summary": "Iteration 4: tested Apple auth endpoint, no-repeat question selection (student + guest), delete-account cleanup, privacy content, logo, and regression. Backend: 41/41 pytest pass (32 existing + 9 new). The new file ran 3 times in a row with no flakes. POST /api/auth/apple returns 401 for garbage, malformed and wrong-kid tokens, and 422 when the token is missing. Student no-repeat works on the 10-question quant pool: tests 1-3 had 9 unique ids with no overlap. Test 4 got the 1 unseen question plus 2 from test 1 (the oldest seen), and seen_questions reached 10. Guest exclude_ids works: unseen questions come first, then the oldest ids from the exclude list, with no duplicates. DELETE /api/auth/account removes seen_questions, the user, test_sessions and sessions. /api/privacy has 'Effective date: 31 October 2026', un2085@gmail.com, both phone numbers and Apple. Frontend at 390x844, no page errors: login shows login-logo (the 1024px image loads) with Google and Guest buttons. apple-signin-btn is not rendered on web, as expected. The privacy link works and back returns to login. The privacy screen shows the effective date, Who we are, Children and Contact (email and phones) in EN and HI. As a guest, Chapter PYQ quant/percentage ran twice (2/2 both times, the same 2 ids refilled, no duplicates). A custom test also ran. localStorage sa_guest_seen filled up (2, then 2, then 4 ids). Regression passed: custom test as student, answer, mark, palette sheet (palette-3 jump closes the sheet), submit and confirm, result with chapter names (Percentage, Profit and Loss, SI and CI), review screen, admin dashboard stats and list, and delete account in the UI (redirects to login; DB cleared).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/apple", "issue": "SECURITY: token_email = claims.get('email') or payload.email. The client-supplied payload.email is trusted when the verified Apple token has no email claim. That email is then used to link to an existing account (find_one by email) and to grant admin (token_email in ADMIN_EMAILS). Anyone with a valid Apple token could send email=un2085@gmail.com and take over the admin account. Use only the verified claims['email'], and only when email_verified is true. Use payload.email only for display on a brand-new account, never for linking or roles.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "APPLE_AUDIENCES env", "issue": "Includes host.exp.Exponent (Expo Go). Every Expo Go project shares this audience, so any app's Expo Go Apple token is accepted. Remove it for production builds."},
+      {"endpoint": "_mark_seen (server.py:530)", "issue": "Runs one update_one per question in sequence (25 round-trips for a mock). Use a single bulk_write of UpdateOne(upsert=True)."},
+      {"endpoint": "_pick_once / _seen_ids_oldest_first", "issue": "Questions are marked seen when the test starts, not when it is submitted, so abandoned tests still use up the pool (design choice; confirm it is intended). $nin with up to 20000 ids per request will be slow at scale."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login", "issues": ["The EN/HI language pills are 34x29px, below the 44pt minimum touch target (lang-toggle-en/hi)."]},
+      {"screen": "Assets", "issues": ["app-logo.png and splash-image.png are each 948KB (1024x1024). Compress or resize the login logo (it is shown at 180px) to speed up first paint."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter4_apple_norepeat_privacy.py", "/app/test_reports/pytest/pytest_results_iter4.xml"],
+  "action_items": [
+    "HIGH: In /api/auth/apple, stop using payload.email for account linking and admin promotion. Trust only the verified claims['email'] (with email_verified).",
+    "Remove host.exp.Exponent from APPLE_AUDIENCES for production.",
+    "Optional: switch _mark_seen to bulk_write; enlarge the login lang pills to at least 44px; compress app-logo.png.",
+    "Confirm the privacy effective date (31 October 2026). It matches the container clock, which reads 2026-10-31."
+  ],
+  "critical_code_review_comments": [
+    "server.py:264: the client-provided email fallback opens an account-takeover and privilege-escalation path (see backend critical).",
+    "No deprecated Expo packages (expo-av, expo-barcode-scanner, expo-background-fetch) found. expo-apple-authentication ~58.0.2 is listed in plugins, and usesAppleSignIn is true in app.json.",
+    "login.tsx: the Apple button is gated by Platform.OS==='ios' && isAvailableAsync and placed above Google (meets Apple HIG prominence). ERR_REQUEST_CANCELED is handled silently."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter4_apple_norepeat_privacy.py"],
+  "success_rate": {"backend": "100% (41/41)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "Recreated user_deltest02 / test_delete_token_456 after the delete tests. Cleared seen_questions for user_teststud01 after the no-repeat test. Guest/student test sessions were created during UI runs.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The no-repeat test assumes exactly 10 published quant questions and clears seen_questions for user_teststud01. Update it when real PYQs are added. Apple sign-in cannot be tested end-to-end (it needs a real iPhone). Guest seen ids are stored in localStorage 'sa_guest_seen' as a JSON string of comma-joined ids.",
+  "rca_of_issue": ""
+}

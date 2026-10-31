@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Icon from "@react-native-vector-icons/ionicons";
 import { useMemo, useState } from "react";
 import { api } from "@/src/api";
-import { setGuestTest } from "@/src/guest-store";
+import { setGuestTest, getGuestSeen, addGuestSeen } from "@/src/guest-store";
 import { useAuth } from "@/src/auth-context";
 import { useLang } from "@/src/lang-context";
 import { colors, radii, spacing } from "@/src/theme";
@@ -73,7 +73,11 @@ export default function ExamDetail() {
         subject_ids: [],
       };
       if (!user && isGuest) {
-        const res = await api<{ questions: any[]; config: any }>("/guest/start", { method: "POST", body: JSON.stringify(config) });
+        const res = await api<{ questions: any[]; config: any }>("/guest/start", {
+          method: "POST",
+          body: JSON.stringify({ ...config, exclude_ids: await getGuestSeen() }),
+        });
+        await addGuestSeen(res.questions.map((q) => q.question_id));
         setGuestTest(res.questions, res.config);
         router.push({ pathname: "/quiz/[sessionId]", params: { sessionId: "guest" } });
       } else {

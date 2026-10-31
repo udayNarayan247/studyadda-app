@@ -22,6 +22,8 @@ Core practice + mock tests first; Emergent Google Auth (+ guest mode); in-app ro
 - Upgraded Expo SDK 57 -> 58 (RN 0.88.1, React 19.3, expo-router 58). Fixed theme.ts types for RN Strict TS API; replaced @gorhom/bottom-sheet palette (broken on SDK 58) with RN Modal. Fixed review bookmark state, guest bookmarks prompt, chapter names on results. Backend 32/32 tests pass.
 
 ## Backlog
+- DONE 2026-10-31: Sign in with Apple (POST /api/auth/apple, verified email only for linking/admin), privacy policy with effective date 31 Oct 2026 + contact un2085@gmail.com + address/phones, StudyAdda logo as icon/splash/login, no-repeat questions per student (seen_questions; unseen first, then oldest-seen) and per guest (on-device list). Backend 41/41 tests.
+- Before production: consider removing host.exp.Exponent from APPLE_AUDIENCES (only needed for Expo Go testing)
 - STORE BLOCKERS: replace default Emergent icon/splash with StudyAdda artwork; add Sign in with Apple (iOS Guideline 4.8); add contact email + effective date to privacy policy
 - P1: Verified real PYQ content; tag questions to exams/years/shifts; filter by year
 - P1: Admin edit question, verification/publish workflow, manage exams/chapters UI

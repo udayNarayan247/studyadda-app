@@ -3,8 +3,12 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import UpdateOne
 import os
 import io
+import random as _random
+import asyncio
+import jwt
 import csv
 import logging
 import httpx
@@ -126,6 +130,7 @@ class TestConfig(BaseModel):
     subject_ids: List[str] = []
     chapter_ids: List[str] = []
     years: List[int] = []
+    exclude_ids: List[str] = []  # guest-only: previously seen question ids, oldest first
     question_count: int = 20
     duration_minutes: int = 20
     marks_per_correct: float = 1.0
@@ -232,6 +237,74 @@ async def create_session(payload: SessionIdInput):
     return AuthResponse(session_token=session_token, user=User(**user_doc))
 
 
+class AppleAuthInput(BaseModel):
+    identity_token: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+
+APPLE_ISSUER = "https://appleid.apple.com"
+_apple_jwks = jwt.PyJWKClient("https://appleid.apple.com/auth/keys", cache_keys=True)
+
+
+def _verify_apple_token(token: str) -> dict:
+    audiences = [a.strip() for a in os.environ["APPLE_AUDIENCES"].split(",") if a.strip()]
+    signing_key = _apple_jwks.get_signing_key_from_jwt(token)
+    return jwt.decode(token, signing_key.key, algorithms=["RS256"], audience=audiences, issuer=APPLE_ISSUER)
+
+
+@api_router.post("/auth/apple", response_model=AuthResponse)
+async def apple_sign_in(payload: AppleAuthInput):
+    try:
+        claims = await asyncio.to_thread(_verify_apple_token, payload.identity_token)
+    except Exception as e:
+        logger.info("Apple token rejected: %s", e)
+        raise HTTPException(status_code=401, detail="Invalid Apple identity token")
+
+    apple_sub = claims["sub"]
+    # Only trust an email Apple itself verified inside the signed token; never the client-sent one
+    verified = str(claims.get("email_verified", "")).lower() == "true"
+    token_email = (claims.get("email") or "").lower() if verified else None
+    now = datetime.now(timezone.utc)
+
+    existing = await db.users.find_one({"apple_sub": apple_sub}, {"_id": 0})
+    if not existing and token_email:
+        # Same person already signed in with Google using this email: link accounts
+        existing = await db.users.find_one({"email": token_email}, {"_id": 0})
+        if existing:
+            await db.users.update_one({"user_id": existing["user_id"]}, {"$set": {"apple_sub": apple_sub}})
+
+    if existing:
+        user_doc = existing
+        if token_email in ADMIN_EMAILS and user_doc.get("role") != "admin":
+            user_doc["role"] = "admin"
+            await db.users.update_one({"user_id": user_doc["user_id"]}, {"$set": {"role": "admin"}})
+    else:
+        email = token_email or f"apple_{apple_sub[:16]}@privaterelay.studyadda"
+        name = (payload.full_name or "").strip() or (token_email.split("@")[0] if token_email else "Student")
+        user_doc = {
+            "user_id": f"user_{uuid.uuid4().hex[:12]}",
+            "email": email,
+            "name": name,
+            "picture": None,
+            "role": "admin" if token_email in ADMIN_EMAILS else "student",
+            "language": "en",
+            "apple_sub": apple_sub,
+            "created_at": now,
+        }
+        await db.users.insert_one(dict(user_doc))
+
+    session_token = f"apl_{uuid.uuid4().hex}{uuid.uuid4().hex}"
+    await db.user_sessions.insert_one({
+        "session_token": session_token,
+        "user_id": user_doc["user_id"],
+        "created_at": now,
+        "expires_at": now + timedelta(days=7),
+    })
+    user_doc.pop("_id", None)
+    return AuthResponse(session_token=session_token, user=User(**user_doc))
+
+
 @api_router.get("/auth/me", response_model=User)
 async def me(authorization: Optional[str] = Header(None)):
     return await get_current_user(authorization)
@@ -250,6 +323,7 @@ async def delete_account(authorization: Optional[str] = Header(None)):
     user = await get_current_user(authorization)
     uid = user.user_id
     await db.bookmarks.delete_many({"user_id": uid})
+    await db.seen_questions.delete_many({"user_id": uid})
     await db.test_sessions.delete_many({"user_id": uid})
     await db.user_sessions.delete_many({"user_id": uid})
     await db.users.delete_one({"user_id": uid})
@@ -260,17 +334,24 @@ PRIVACY_HTML = """<!doctype html><html><head><meta charset="utf-8"><meta name="v
 <title>StudyAdda Dhanbad - Privacy Policy</title>
 <style>body{font-family:system-ui,sans-serif;max-width:720px;margin:auto;padding:24px;color:#0B152A;line-height:1.6}h2{color:#8A6D1C}</style></head><body>
 <h1>StudyAdda Dhanbad - Privacy Policy</h1>
-<p>StudyAdda Dhanbad is a free exam practice app for Bank, SSC and Railway exam aspirants.</p>
+<p><b>Effective date:</b> 31 October 2026 &nbsp;|&nbsp; <b>Last updated:</b> 31 October 2026</p>
+<p>StudyAdda Dhanbad ("we", "us") is a free exam practice app for Bank, SSC and Railway exam aspirants, published by StudyAdda Dhanbad, Room No. 421, 2nd Floor, Luby Circular Road City Centre, Near Bus Stand, Dhanbad - 826001, Jharkhand, India.</p>
 <h2>Information we collect</h2>
-<p>If you sign in with Google, we receive your name, email address and profile picture. We store your language preference, test attempts, answers, scores and bookmarked questions so you can see your progress on any device. Guest tests are not stored on our servers.</p>
+<p>If you sign in with Google, we receive your name, email address and profile picture. If you sign in with Apple, we receive an Apple user identifier and, only if you choose to share them, your name and email (which may be an Apple private relay address). We store your language preference, test attempts, answers, scores, the questions you have already practised (so we can avoid repeating them) and bookmarked questions, so you can see your progress on any device. Guest tests are not stored on our servers; a list of practised question IDs is kept only on your device.</p>
 <h2>How we use it</h2>
 <p>Only to provide the app: sign-in, saving practice history, bookmarks and performance. We do not sell your data or use it for advertising.</p>
 <h2>Sharing</h2>
-<p>We do not share your personal data with third parties, except the sign-in provider used to log you in.</p>
+<p>We do not share your personal data with third parties, except the sign-in provider (Google or Apple) used to log you in.</p>
+<h2>Data retention and security</h2>
+<p>Your data is kept while your account is active and is transmitted over encrypted HTTPS connections. Sign-in sessions expire after 7 days.</p>
 <h2>Deleting your data</h2>
-<p>You can delete your account any time from Profile &gt; Delete Account in the app. This permanently removes your profile, test history and bookmarks.</p>
+<p>You can delete your account any time from Profile &gt; Delete Account in the app. This permanently removes your profile, test history, practised-question history and bookmarks. You can also request deletion by email.</p>
 <h2>Children</h2>
 <p>The app is intended for students preparing for recruitment exams and is not directed at children under 13.</p>
+<h2>Changes to this policy</h2>
+<p>If we change this policy we will update the "Last updated" date above.</p>
+<h2>Contact us</h2>
+<p>Email: <a href="mailto:un2085@gmail.com">un2085@gmail.com</a><br>Phone: 9123494102, 8101698099<br>Address: Room No. 421, 2nd Floor, Luby Circular Road City Centre, Near Bus Stand, Dhanbad - 826001</p>
 </body></html>"""
 
 
@@ -410,13 +491,57 @@ async def admin_bulk_upload_csv(file: UploadFile = File(...), authorization: Opt
 # ============================================================================
 # TEST SESSIONS
 # ============================================================================
-async def _sample_questions(q: Dict[str, Any], n: int) -> List[dict]:
+async def _pick_once(q: Dict[str, Any], n: int, seen: List[str]) -> List[dict]:
+    """Unseen questions first (random, no duplicates); if the pool runs out,
+    top up with the questions the student saw longest ago."""
+    match = {**q, "question_id": {"$nin": seen}} if seen else q
+    sampled = await db.questions.aggregate(
+        [{"$match": match}, {"$sample": {"size": n * 2}}, {"$project": {"_id": 0}}]
+    ).to_list(n * 2)
+    picked: List[dict] = []
+    ids = set()
+    for r in sampled:  # $sample can return the same doc twice
+        if r["question_id"] not in ids:
+            ids.add(r["question_id"])
+            picked.append(r)
+        if len(picked) == n:
+            break
+    if len(picked) < n and seen:
+        in_scope = set(await db.questions.distinct("question_id", {**q, "question_id": {"$in": seen}}))
+        refill_ids = [i for i in seen if i in in_scope and i not in ids][: n - len(picked)]
+        if refill_ids:
+            docs = await db.questions.find({"question_id": {"$in": refill_ids}}, {"_id": 0}).to_list(len(refill_ids))
+            picked.extend(docs)
+    _random.shuffle(picked)
+    return picked
+
+
+async def _sample_questions(q: Dict[str, Any], n: int, seen: Optional[List[str]] = None) -> List[dict]:
     n = max(1, min(n, 200))
-    pipeline = lambda m: [{"$match": m}, {"$sample": {"size": n}}, {"$project": {"_id": 0}}]
-    rows = await db.questions.aggregate(pipeline(q)).to_list(n)
+    seen = seen or []
+    rows = await _pick_once(q, n, seen)
     if not rows and "exam_id" in q:
-        rows = await db.questions.aggregate(pipeline({k: v for k, v in q.items() if k != "exam_id"})).to_list(n)
+        rows = await _pick_once({k: v for k, v in q.items() if k != "exam_id"}, n, seen)
     return rows
+
+
+async def _seen_ids_oldest_first(user_id: str) -> List[str]:
+    docs = await db.seen_questions.find({"user_id": user_id}, {"_id": 0, "question_id": 1}).sort("seen_at", 1).to_list(20000)
+    return [d["question_id"] for d in docs]
+
+
+async def _mark_seen(user_id: str, question_ids: List[str]):
+    if not question_ids:
+        return
+    now = datetime.now(timezone.utc)
+    await db.seen_questions.bulk_write([
+        UpdateOne(
+            {"user_id": user_id, "question_id": qid},
+            {"$set": {"user_id": user_id, "question_id": qid, "seen_at": now}},
+            upsert=True,
+        )
+        for qid in question_ids
+    ], ordered=False)
 
 
 @api_router.post("/tests/start", response_model=TestSession)
@@ -434,9 +559,11 @@ async def start_test(config: TestConfig, authorization: Optional[str] = Header(N
     if config.years:
         q["year"] = {"$in": config.years}
 
-    selected = await _sample_questions(q, config.question_count)
+    seen = await _seen_ids_oldest_first(user.user_id)
+    selected = await _sample_questions(q, config.question_count, seen)
     if not selected:
         raise HTTPException(status_code=400, detail="No questions found for your selection")
+    await _mark_seen(user.user_id, [r["question_id"] for r in selected])
 
     sid = f"ts_{uuid.uuid4().hex[:12]}"
     doc = TestSession(
@@ -582,7 +709,8 @@ async def guest_start(config: TestConfig):
         q["subject_id"] = {"$in": config.subject_ids}
     if config.chapter_ids:
         q["chapter_id"] = {"$in": config.chapter_ids}
-    rows = await _sample_questions(q, config.question_count)
+    # Guests send the ids they've already seen (oldest first) from the device
+    rows = await _sample_questions(q, config.question_count, config.exclude_ids[-5000:])
     if not rows:
         raise HTTPException(status_code=400, detail="No questions available")
     return {"questions": rows, "config": config.dict()}
@@ -898,6 +1026,9 @@ async def startup():
     await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
     await db.questions.create_index([("subject_id", 1), ("chapter_id", 1)])
     await db.test_sessions.create_index([("user_id", 1), ("started_at", -1)])
+    await db.seen_questions.create_index([("user_id", 1), ("question_id", 1)], unique=True)
+    await db.seen_questions.create_index([("user_id", 1), ("seen_at", 1)])
+    await db.users.create_index("apple_sub", unique=True, sparse=True)
     # Auto seed on startup
     if await db.exam_categories.count_documents({}) == 0:
         try:
