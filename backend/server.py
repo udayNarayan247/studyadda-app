@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request, UploadFile, File, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import io
@@ -244,6 +245,40 @@ async def logout(authorization: Optional[str] = Header(None)):
     return {"ok": True}
 
 
+@api_router.delete("/auth/account")
+async def delete_account(authorization: Optional[str] = Header(None)):
+    user = await get_current_user(authorization)
+    uid = user.user_id
+    await db.bookmarks.delete_many({"user_id": uid})
+    await db.test_sessions.delete_many({"user_id": uid})
+    await db.user_sessions.delete_many({"user_id": uid})
+    await db.users.delete_one({"user_id": uid})
+    return {"ok": True}
+
+
+PRIVACY_HTML = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StudyAdda Dhanbad - Privacy Policy</title>
+<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:auto;padding:24px;color:#0B152A;line-height:1.6}h2{color:#8A6D1C}</style></head><body>
+<h1>StudyAdda Dhanbad - Privacy Policy</h1>
+<p>StudyAdda Dhanbad is a free exam practice app for Bank, SSC and Railway exam aspirants.</p>
+<h2>Information we collect</h2>
+<p>If you sign in with Google, we receive your name, email address and profile picture. We store your language preference, test attempts, answers, scores and bookmarked questions so you can see your progress on any device. Guest tests are not stored on our servers.</p>
+<h2>How we use it</h2>
+<p>Only to provide the app: sign-in, saving practice history, bookmarks and performance. We do not sell your data or use it for advertising.</p>
+<h2>Sharing</h2>
+<p>We do not share your personal data with third parties, except the sign-in provider used to log you in.</p>
+<h2>Deleting your data</h2>
+<p>You can delete your account any time from Profile &gt; Delete Account in the app. This permanently removes your profile, test history and bookmarks.</p>
+<h2>Children</h2>
+<p>The app is intended for students preparing for recruitment exams and is not directed at children under 13.</p>
+</body></html>"""
+
+
+@api_router.get("/privacy", response_class=HTMLResponse)
+async def privacy_policy():
+    return HTMLResponse(PRIVACY_HTML)
+
+
 @api_router.post("/auth/language")
 async def set_language(payload: Dict[str, str], authorization: Optional[str] = Header(None)):
     user = await get_current_user(authorization)
@@ -299,6 +334,7 @@ async def list_questions(
     if year: q["year"] = year
     if not include_unpublished:
         q["published"] = True
+    limit = max(1, min(limit, 500))
     rows = await db.questions.find(q, {"_id": 0}).limit(limit).to_list(limit)
     return [Question(**r) for r in rows]
 
@@ -374,7 +410,14 @@ async def admin_bulk_upload_csv(file: UploadFile = File(...), authorization: Opt
 # ============================================================================
 # TEST SESSIONS
 # ============================================================================
-import random as _random
+async def _sample_questions(q: Dict[str, Any], n: int) -> List[dict]:
+    n = max(1, min(n, 200))
+    pipeline = lambda m: [{"$match": m}, {"$sample": {"size": n}}, {"$project": {"_id": 0}}]
+    rows = await db.questions.aggregate(pipeline(q)).to_list(n)
+    if not rows and "exam_id" in q:
+        rows = await db.questions.aggregate(pipeline({k: v for k, v in q.items() if k != "exam_id"})).to_list(n)
+    return rows
+
 
 @api_router.post("/tests/start", response_model=TestSession)
 async def start_test(config: TestConfig, authorization: Optional[str] = Header(None)):
@@ -391,15 +434,9 @@ async def start_test(config: TestConfig, authorization: Optional[str] = Header(N
     if config.years:
         q["year"] = {"$in": config.years}
 
-    rows = await db.questions.find(q, {"_id": 0}).to_list(2000)
-    if not rows and "exam_id" in q:
-        q.pop("exam_id")
-        rows = await db.questions.find(q, {"_id": 0}).to_list(2000)
-    if not rows:
+    selected = await _sample_questions(q, config.question_count)
+    if not selected:
         raise HTTPException(status_code=400, detail="No questions found for your selection")
-
-    _random.shuffle(rows)
-    selected = rows[: config.question_count]
 
     sid = f"ts_{uuid.uuid4().hex[:12]}"
     doc = TestSession(
@@ -545,14 +582,9 @@ async def guest_start(config: TestConfig):
         q["subject_id"] = {"$in": config.subject_ids}
     if config.chapter_ids:
         q["chapter_id"] = {"$in": config.chapter_ids}
-    rows = await db.questions.find(q, {"_id": 0}).to_list(2000)
-    if not rows and "exam_id" in q:
-        q.pop("exam_id")
-        rows = await db.questions.find(q, {"_id": 0}).to_list(2000)
+    rows = await _sample_questions(q, config.question_count)
     if not rows:
         raise HTTPException(status_code=400, detail="No questions available")
-    _random.shuffle(rows)
-    rows = rows[: config.question_count]
     return {"questions": rows, "config": config.dict()}
 
 

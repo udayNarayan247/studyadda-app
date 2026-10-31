@@ -4,7 +4,6 @@ import { LogBox, View, ActivityIndicator } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useEffect } from "react";
 
 import { ErrorBoundary } from "@/src/components/error-boundary";
@@ -22,11 +21,12 @@ function Gate() {
 
   useEffect(() => {
     if (loading) return;
-    const inAuth = segments[0] === "login";
+    const onLogin = segments[0] === "login";
+    const onPublic = segments[0] === "privacy";
     const authed = !!user || isGuest;
-    if (!authed && !inAuth) {
+    if (!authed && !onLogin && !onPublic) {
       router.replace("/login");
-    } else if (authed && inAuth) {
+    } else if (authed && onLogin) {
       router.replace("/(tabs)");
     }
   }, [user, loading, isGuest, segments]);
@@ -50,6 +50,7 @@ function Gate() {
       <Stack.Screen name="admin/index" />
       <Stack.Screen name="admin/question-form" />
       <Stack.Screen name="bookmarks" />
+      <Stack.Screen name="privacy" />
     </Stack>
   );
 }
@@ -61,13 +62,11 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
             <KeyboardProvider>
-              <BottomSheetModalProvider>
-                <AuthProvider>
-                  <LanguageProvider>
-                    <Gate />
-                  </LanguageProvider>
-                </AuthProvider>
-              </BottomSheetModalProvider>
+              <AuthProvider>
+                <LanguageProvider>
+                  <Gate />
+                </LanguageProvider>
+              </AuthProvider>
             </KeyboardProvider>
           </QueryClientProvider>
         </SafeAreaProvider>

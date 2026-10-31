@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Icon from "@react-native-vector-icons/ionicons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/src/api";
 import { loadTest } from "@/src/guest-store";
 import { useAuth } from "@/src/auth-context";
@@ -24,6 +24,16 @@ export default function Review() {
     queryFn: () => loadTest(String(sessionId)),
     gcTime: 0,
   });
+
+  const { data: savedBookmarks } = useQuery<any[]>({
+    queryKey: ["bookmarks"],
+    queryFn: () => api("/bookmarks"),
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (savedBookmarks) setBookmarked(new Set(savedBookmarks.map((b) => b.question_id)));
+  }, [savedBookmarks]);
 
   const toggleBookmark = useMutation({
     mutationFn: async (qid: string) => {

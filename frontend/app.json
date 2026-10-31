@@ -5,18 +5,22 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
-    "userInterfaceStyle": "automatic",
+    "scheme": "studyadda",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emergent.dhanbadpyqpractice.om0bym"
+      "bundleIdentifier": "com.emergent.dhanbadpyqpractice.om0bym",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#0B152A"
       },
-      "package": "com.emergent.dhanbadpyqpractice.om0bym"
+      "package": "com.emergent.dhanbadpyqpractice.om0bym",
+      "permissions": []
     },
     "web": {
       "bundler": "metro",
@@ -31,7 +35,7 @@
           "image": "./assets/images/splash-image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#0B152A"
         }
       ],
       "expo-font",

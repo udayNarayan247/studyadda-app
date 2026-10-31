@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 2 (store readiness). Backend 32/32 pass (21 regression + 11 new: Delete Account, Privacy HTML, $sample no-dupes/exact counts, limit cap 500). Frontend: login->Privacy->back works, Hindi translation of privacy + delete modal works, Delete Account full flow with test_delete_token_456 works (DELETE 200, token cleared, redirected to login, DB rows removed), Delete button hidden for guest, guest quiz + admin dashboard regression pass. FOUND & FIXED a blocking bug: Gate in _layout.tsx redirected any guest/logged-in user from /privacy to /(tabs), so Profile > Privacy Policy did nothing. Store blockers remaining: the app icon and splash are still the default Emergent template images, and Sign in with Apple is missing for iOS (Guideline 4.8).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/privacy", "issue": "Hosted policy has no contact email/developer name and no 'last updated' date. Google Play requires contact info in the policy."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Gate (_layout.tsx)", "issue": "FIXED by testing agent: guest or logged-in users opening /privacy were sent straight to /(tabs) because 'privacy' was treated like 'login'. Profile Privacy Policy row did nothing.", "testID": "profile-privacy-btn", "priority": "HIGH"},
+      {"component": "Privacy back button", "issue": "FIXED by testing agent: opening /privacy directly (no history) meant router.back() did nothing. It now falls back to router.replace('/login').", "testID": "privacy-back", "priority": "LOW"},
+      {"component": "Delete account modal", "issue": "The modal is an absolute View inside the tab screen. Its backdrop does not cover the bottom tab bar, so tabs can still be tapped while the modal is open, and it does not handle the Android back button. Use the RN <Modal transparent> component instead.", "testID": "delete-account-modal", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Login", "issues": ["The Privacy Policy link is only 14px tall. hitSlop=8 does not apply on web, and even on native it gives only 30px, below 44. Add paddingVertical."]},
+      {"screen": "Admin question form", "issues": ["The SUBJECT section shows empty while /catalog/subjects loads. There is no loading indicator."]},
+      {"screen": "Privacy (in-app)", "issues": ["The in-app policy is missing the 'Children' section that the hosted /api/privacy page has. The two versions should match."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_store_readiness.py", "/app/backend/tests/test_studyadda_api.py", "/app/test_reports/pytest/pytest_results_iter2.xml"],
+  "action_items": [
+    "HIGH (store blocker): assets/images/icon.png, adaptive-icon.png and splash-image.png are still the default Emergent template ('Start building apps on emergent'). Replace them with StudyAdda branded assets. Apple/Google will reject placeholder branding.",
+    "HIGH (iOS blocker, Apple Guideline 4.8): the app offers Google sign-in, so iOS also needs Sign in with Apple (or an equivalent privacy-focused login). Otherwise expect rejection.",
+    "MEDIUM: add contact email, developer name and an effective date to the privacy policy (both /api/privacy and privacy.tsx). Play Console needs the public URL https://<domain>/api/privacy.",
+    "MEDIUM: change the app.json slug from 'frontend' to something meaningful, e.g. 'studyadda-dhanbad'. Consider adding ios.buildNumber / android.versionCode.",
+    "LOW: replace the absolute-View delete modal with RN <Modal transparent onRequestClose> so it covers the tab bar and handles the Android back button.",
+    "LOW: increase the login Privacy link touch target to at least 44px.",
+    "Review the testing-agent edits in _layout.tsx (Gate) and privacy.tsx (back fallback)."
+  ],
+  "critical_code_review_comments": [
+    "_sample_questions silently caps at 200 and falls back to all exams when the exam filter returns nothing. That is fine, but the cap is not documented in TestConfig validation.",
+    "delete_account does not delete user-created admin questions (expected). It removes users, user_sessions, test_sessions and bookmarks correctly.",
+    "The test_bulk_csv_upload test from iteration 1 left 'TEST_ 50% of 200' questions published, and they appeared in real Percentage quizzes. Cleaned from the DB and the test now cleans up after itself."
+  ],
+  "updated_files": [
+    "/app/frontend/app/_layout.tsx (Gate: privacy is a public route; only /login redirects authed users)",
+    "/app/frontend/app/privacy.tsx (back button falls back to /login when there is no history)",
+    "/app/backend/tests/conftest.py (removed hardcoded URL default; reads frontend/.env)",
+    "/app/backend/tests/test_studyadda_api.py (bulk CSV test cleanup)",
+    "/app/backend/tests/test_store_readiness.py (new)"
+  ],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "100% of requested flows after the Gate fix (before the fix, Profile > Privacy was broken)"},
+  "seed_data_creation": "Recreated user_deltest02 + session test_delete_token_456 in MongoDB after the UI delete test (valid 30 days). Backend delete test uses its own TEST_ users created and removed via pymongo. Deleted 2 leftover TEST_ questions.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && python -m pytest tests/ -q. The URL is read from frontend/.env EXPO_PUBLIC_BACKEND_URL. UI login: localStorage.setItem('sa_session_token', JSON.stringify('<token>')) then go to /profile. The UI delete test consumes test_delete_token_456; recreate it with mongosh (studyadda_db.users + user_sessions, user_id user_deltest02). Quiz: the submit button appears only on the last question. Exam screen needs a subject-chip-* tap before chapter-* chips appear.",
+  "rca_of_issue": "Profile > Privacy did nothing for authed/guest users. Root cause: in _layout.tsx the Gate set inAuth = segments[0] in ['login','privacy'] and ran router.replace('/(tabs)') whenever authed && inAuth, so the privacy route bounced back immediately. Fix: treat 'privacy' as a public route that is never redirected, and redirect authed users only from 'login'. Verified: guest and logged-in users stay on /privacy and back returns to /profile."
+}

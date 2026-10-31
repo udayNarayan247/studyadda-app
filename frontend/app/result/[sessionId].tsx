@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Icon from "@react-native-vector-icons/ionicons";
+import { api } from "@/src/api";
 import { loadTest } from "@/src/guest-store";
 import { useLang } from "@/src/lang-context";
 import { colors, radii, spacing } from "@/src/theme";
@@ -11,7 +12,16 @@ export default function Result() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
-  const { t } = useLang();
+  const { t, pick } = useLang();
+
+  const { data: chapters } = useQuery<{ chapter_id: string; name: string; name_hi: string }[]>({
+    queryKey: ["chapters", "all"],
+    queryFn: () => api("/catalog/chapters"),
+  });
+  const chapterName = (id: string) => {
+    const c = chapters?.find((x) => x.chapter_id === id);
+    return c ? pick(c.name, c.name_hi) : id;
+  };
 
   const { data, isLoading } = useQuery<{ session: any; questions: any[] }>({
     queryKey: ["result", sessionId],
@@ -65,7 +75,7 @@ export default function Result() {
               const acc = st.total ? Math.round((st.correct / st.total) * 100) : 0;
               return (
                 <View key={chap} style={styles.chapRow}>
-                  <Text style={styles.chapName}>{chap}</Text>
+                  <Text style={styles.chapName}>{chapterName(chap)}</Text>
                   <View style={styles.chapBar}><View style={[styles.chapFill, { width: `${acc}%` }]} /></View>
                   <Text style={styles.chapPct}>{st.correct}/{st.total}</Text>
                 </View>

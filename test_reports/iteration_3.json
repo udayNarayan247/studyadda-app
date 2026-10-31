@@ -1,0 +1,46 @@
+{
+  "summary": "SDK 58 upgrade regression (Expo 58 / RN 0.88.1 / React 19.3). Backend: 32/32 pytest pass (catalog, tests start/submit, guest/start, privacy, auth/account, admin, bookmarks). Frontend at 390x844, no page errors: login, guest, home categories (3), practice chips and exam rows, all 4 exam modes (chapter/mixed/mock/custom), quiz (options, prev/next, mark, timer counting down, Hindi toggle, close->confirm), submit confirm (cancel and submit), result, review, history, profile, privacy from login and from profile (back works), bookmarks, admin dashboard + add question (saved), sign out, delete account. The new RN Modal palette works: palette-sheet slides into view at the bottom (y=458..844) with the 'Question Palette' title visible. A palette-N tap jumps to that question and closes the sheet. A palette-backdrop tap closes it. Legend colors are right: answered is green rgb(22,101,52), review is gold rgb(212,175,55), unanswered is grey rgb(229,233,240) with a border. Hindi title shows. No SDK 58 regressions found. A few minor issues already existed before the upgrade.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "seed data /api/questions", "issue": "30 of 34 seeded questions have correct='B' and 4 have 'A'. Always choosing B gives about 88%, which makes the practice meaningless. Shuffle the options or vary the correct key in the seed."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Review bookmark toggle", "issue": "The bookmarked state is local useState only and is never filled from GET /bookmarks. When the review screen is reopened, bookmarked questions show the outline icon. Tapping it sends POST again (no-op) instead of DELETE, so the user cannot un-bookmark from review. Reference: app/review/[sessionId].tsx:20-34", "testID": "review-bookmark-btn", "priority": "MEDIUM"},
+      {"component": "Bookmarks (guest)", "issue": "Guests can open Bookmarks from Profile. It calls /api/bookmarks without a token, gets 401 (react-query retries), then shows 'No bookmarks yet.' instead of a sign-in prompt like History does. Reference: app/bookmarks.tsx:15-18", "testID": "profile-bookmarks-btn", "priority": "LOW"},
+      {"component": "Result chapter-wise", "issue": "Chapter-wise rows show raw chapter_id slugs ('percentage', 'number-series') instead of names. Hindi names are not used either. Reference: app/result/[sessionId].tsx:64", "testID": "result-score", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Dashboard", "issues": ["While loading, the stat cards show 0 Users / 0 Questions / 0 Tests and 'QUESTIONS (0)', with no loading indicator. The real values appear 1-3s later. This misleads the admin."]},
+      {"screen": "Admin question form", "issues": ["The 'Saved!' message appears where it is scrolled out of view (below the fields), so there is no visible confirmation at the Save button."]},
+      {"screen": "Quiz palette (native)", "issues": ["A transparent Modal with animationType=slide also slides the dim backdrop up with the sheet. Consider animationType='fade' plus an animated sheet, or keep as is. This is cosmetic only."]}
+    ],
+    "react_native_issues": [
+      {"component": "@gorhom/bottom-sheet (unused)", "issue": "The palette was moved to RN Modal, but @gorhom/bottom-sheet 5.2.14 is still in package.json and nothing imports it. Remove it to cut bundle and native dependency risk. Reference: /app/frontend/package.json"},
+      {"component": "LogBox.ignoreAllLogs", "issue": "LogBox.ignoreAllLogs(true) hides all SDK 58 deprecation warnings in dev. Reference: app/_layout.tsx:15"}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_studyadda_api.py", "/app/backend/tests/test_store_readiness.py", "/app/test_reports/pytest/pytest_results_iter3.xml"],
+  "action_items": [
+    "Review screen: load the user's bookmarks (GET /bookmarks) to set the initial 'bookmarked' Set, so the toggle can remove bookmarks.",
+    "Bookmarks screen: for guests, show a sign-in prompt and disable the query (enabled: !!user).",
+    "Result chapter-wise: map chapter_id to chapter name / name_hi.",
+    "Admin dashboard: show loading placeholders instead of 0 while stats/questions load.",
+    "Remove the unused @gorhom/bottom-sheet dependency (yarn remove).",
+    "Seed data: vary the correct option key."
+  ],
+  "critical_code_review_comments": [
+    "The quiz palette RN Modal sets onRequestClose (Android back works). The submit-confirm and delete-account dialogs are still absolute Views (known, not regressed).",
+    "theme.ts makeStyles now uses a local NamedStyles generic and compiles. Only 2 usages."
+  ],
+  "updated_files": ["/app/frontend/app/admin/question-form.tsx (added testID qf-chapter-{chapter_id} to chapter chips)"],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "100% of requested flows passed; 3 minor pre-existing bugs"},
+  "seed_data_creation": "Recreated user_deltest02 + test_delete_token_456 after the UI delete test. Recreated the test_student_token_123 session (the UI sign-out deletes it server-side). Deleted the TEST_SDK58 question created via the admin form and the test bookmark.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Guest state is in memory, so page.goto() after guest login returns to /login. Navigate by tapping in the app. Chapter mode on the first chapter has only 1 question; use mode-mock (25 Q) for palette tests. Signing out via UI deletes the session token in the DB; recreate test_student_token_123 / test_admin_token_123 afterwards. The delete flow consumes test_delete_token_456 (recreate with mongosh). The admin form needs qf-subject-* then qf-chapter-* before qf-save is enabled.",
+  "rca_of_issue": "Review bookmark: useState(new Set()) is never filled from the server, so the toggle direction is wrong for questions bookmarked earlier."
+}

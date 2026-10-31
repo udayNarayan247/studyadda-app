@@ -206,6 +206,12 @@ class TestAdmin:
         data = r.json()
         assert data["inserted"] == 1
         assert data["errors"] == []
+        # cleanup: remove CSV-inserted TEST_ question so it doesn't leak into real quizzes
+        admin_h = {"Authorization": "Bearer test_admin_token_123"}
+        qs = requests.get(f"{base_url}/api/questions", params={"limit": 500}, headers=admin_h).json()
+        for q in qs:
+            if str(q.get("text", "")).startswith("TEST_"):
+                requests.delete(f"{base_url}/api/admin/questions/{q['question_id']}", headers=admin_h)
 
 
 # -------- Guest --------

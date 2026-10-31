@@ -77,7 +77,7 @@ export default function QuestionForm() {
             <Label>{t("Chapter", "अध्याय")}</Label>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRowContent} style={styles.chipRow}>
               {(chapters || []).map((c) => (
-                <Pressable key={c.chapter_id} onPress={() => setChapterId(c.chapter_id)} style={[styles.chip, chapterId === c.chapter_id && styles.chipActive]}>
+                <Pressable key={c.chapter_id} testID={`qf-chapter-${c.chapter_id}`} onPress={() => setChapterId(c.chapter_id)} style={[styles.chip, chapterId === c.chapter_id && styles.chipActive]}>
                   <Text style={[styles.chipText, chapterId === c.chapter_id && styles.chipTextActive]}>{c.name}</Text>
                 </Pressable>
               ))}

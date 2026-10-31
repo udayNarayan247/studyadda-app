@@ -21,6 +21,7 @@ type AuthContextType = {
   signInWithGoogle: () => Promise<void>;
   signInAsGuest: () => void;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setLanguage: (lang: "en" | "hi") => Promise<void>;
   isGuest: boolean;
@@ -155,6 +156,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsGuest(false);
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await api("/auth/account", { method: "DELETE" });
+    setApiToken(null);
+    await clearToken();
+    setUser(null);
+    setIsGuest(false);
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       const u = await api<AuthUser>("/auth/me");
@@ -173,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInAsGuest, signOut, refreshUser, setLanguage, isGuest }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInAsGuest, signOut, deleteAccount, refreshUser, setLanguage, isGuest }}>
       {children}
     </AuthContext.Provider>
   );

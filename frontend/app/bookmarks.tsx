@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter, Stack } from "expo-router";
 import Icon from "@react-native-vector-icons/ionicons";
 import { api } from "@/src/api";
+import { useAuth } from "@/src/auth-context";
 import { useLang } from "@/src/lang-context";
 import { colors, radii, spacing } from "@/src/theme";
 
@@ -11,10 +12,12 @@ export default function Bookmarks() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t, pick } = useLang();
+  const { user } = useAuth();
 
   const { data, isLoading } = useQuery<any[]>({
     queryKey: ["bookmarks"],
     queryFn: () => api("/bookmarks"),
+    enabled: !!user,
   });
 
   return (
@@ -27,7 +30,12 @@ export default function Bookmarks() {
         <Text style={styles.title}>{t("Bookmarks", "बुकमार्क")}</Text>
       </View>
 
-      {isLoading ? (
+      {!user ? (
+        <View style={{ alignItems: "center", padding: spacing.xxl, gap: spacing.md }} testID="bookmarks-signin-prompt">
+          <Icon name="lock-closed" size={48} color={colors.muted} />
+          <Text style={{ color: colors.muted, textAlign: "center" }}>{t("Sign in to save and view bookmarks.", "बुकमार्क सहेजने और देखने के लिए साइन इन करें।")}</Text>
+        </View>
+      ) : isLoading ? (
         <ActivityIndicator color={colors.brandPrimary} style={{ marginTop: spacing.xl }} />
       ) : (
         <FlatList

@@ -2,7 +2,9 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://dhanbad-pyq-practice.preview.emergentagent.com").rstrip("/")
+from dotenv import dotenv_values
+
+BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or dotenv_values("/app/frontend/.env").get("EXPO_PUBLIC_BACKEND_URL")).rstrip("/")
 
 ADMIN_TOKEN = "test_admin_token_123"
 STUDENT_TOKEN = "test_student_token_123"

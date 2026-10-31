@@ -1,4 +1,5 @@
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
+import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import Icon from "@react-native-vector-icons/ionicons";
@@ -9,8 +10,23 @@ import { colors, radii, spacing } from "@/src/theme";
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, isGuest, signOut, signInWithGoogle } = useAuth();
+  const { user, isGuest, signOut, signInWithGoogle, deleteAccount } = useAuth();
   const { t, lang, setLang } = useLang();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const onDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteAccount();
+      setConfirmDelete(false);
+    } catch {
+      setDeleteError(t("Could not delete account. Please try again.", "खाता नहीं हटाया जा सका। कृपया पुनः प्रयास करें।"));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const Row = ({ icon, label, onPress, testID, right }: any) => (
     <Pressable testID={testID} style={styles.row} onPress={onPress}>
@@ -67,6 +83,11 @@ export default function Profile() {
           </>
         )}
 
+        <Text style={styles.section}>{t("About", "जानकारी")}</Text>
+        <View style={styles.group}>
+          <Row testID="profile-privacy-btn" icon="shield-checkmark" label={t("Privacy Policy", "गोपनीयता नीति")} onPress={() => router.push("/privacy")} />
+        </View>
+
         <View style={{ marginTop: spacing.xl }}>
           {isGuest ? (
             <Pressable testID="profile-signin-btn" style={styles.signoutBtn} onPress={signInWithGoogle}>
@@ -79,8 +100,34 @@ export default function Profile() {
               <Text style={styles.signoutText}>{t("Sign Out", "साइन आउट")}</Text>
             </Pressable>
           )}
+          {!!user && (
+            <Pressable testID="profile-delete-account-btn" style={styles.deleteBtn} onPress={() => { setDeleteError(null); setConfirmDelete(true); }}>
+              <Text style={styles.deleteText}>{t("Delete Account", "खाता हटाएँ")}</Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
+
+      {confirmDelete && (
+        <View style={styles.modalBackdrop} testID="delete-account-modal">
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{t("Delete your account?", "अपना खाता हटाएँ?")}</Text>
+            <Text style={styles.modalBody}>
+              {t("This permanently deletes your profile, test history and bookmarks. This cannot be undone.",
+                 "इससे आपकी प्रोफ़ाइल, टेस्ट इतिहास और बुकमार्क स्थायी रूप से हट जाएँगे। इसे वापस नहीं किया जा सकता।")}
+            </Text>
+            {!!deleteError && <Text style={styles.modalError} testID="delete-account-error">{deleteError}</Text>}
+            <View style={styles.modalRow}>
+              <Pressable testID="delete-account-cancel" style={styles.modalBtn} onPress={() => setConfirmDelete(false)} disabled={deleting}>
+                <Text style={styles.modalBtnText}>{t("Cancel", "रद्द करें")}</Text>
+              </Pressable>
+              <Pressable testID="delete-account-confirm" style={[styles.modalBtn, styles.modalBtnDanger]} onPress={onDelete} disabled={deleting}>
+                {deleting ? <ActivityIndicator color={colors.onError} /> : <Text style={[styles.modalBtnText, { color: colors.onError }]}>{t("Delete", "हटाएँ")}</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -104,4 +151,15 @@ const styles = StyleSheet.create({
   langPillTextActive: { color: colors.onBrandPrimary },
   signoutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brandPrimary, paddingVertical: 14, borderRadius: radii.md },
   signoutText: { color: colors.onBrandPrimary, fontWeight: "700" },
+  deleteBtn: { marginTop: spacing.md, paddingVertical: 14, alignItems: "center", borderRadius: radii.md, borderWidth: 1, borderColor: colors.error },
+  deleteText: { color: colors.error, fontWeight: "700" },
+  modalBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(11,21,42,0.55)", alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  modalCard: { backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing.xl, width: "100%", maxWidth: 400 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
+  modalBody: { fontSize: 14, color: colors.muted, marginTop: spacing.sm, lineHeight: 22 },
+  modalError: { fontSize: 13, color: colors.error, marginTop: spacing.sm },
+  modalRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg },
+  modalBtn: { flex: 1, minHeight: 48, borderRadius: radii.md, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border },
+  modalBtnDanger: { backgroundColor: colors.error, borderColor: colors.error },
+  modalBtnText: { fontWeight: "700", color: colors.onSurface },
 });

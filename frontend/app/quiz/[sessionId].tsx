@@ -1,10 +1,9 @@
-import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Icon from "@react-native-vector-icons/ionicons";
-import BottomSheet, { BottomSheetBackdrop } from "@gorhom/bottom-sheet";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { api } from "@/src/api";
 import { loadTest, submitGuestTest } from "@/src/guest-store";
@@ -27,7 +26,7 @@ export default function Quiz() {
   const router = useRouter();
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const { t, pick, lang, toggle } = useLang();
-  const sheetRef = useRef<BottomSheet>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const { data, isLoading } = useQuery<SessionData>({
     queryKey: ["test", sessionId],
@@ -125,7 +124,7 @@ export default function Quiz() {
         <Pressable onPress={toggle} style={styles.iconBtn} testID="quiz-lang-toggle">
           <Text style={styles.langBtnText}>{lang === "en" ? "हिं" : "EN"}</Text>
         </Pressable>
-        <Pressable onPress={() => sheetRef.current?.expand()} style={styles.iconBtn} testID="quiz-palette-btn">
+        <Pressable onPress={() => setPaletteOpen(true)} style={styles.iconBtn} testID="quiz-palette-btn">
           <Icon name="grid" size={20} color={colors.onSurface} />
         </Pressable>
       </View>
@@ -176,14 +175,10 @@ export default function Quiz() {
         )}
       </View>
 
-      <BottomSheet
-        ref={sheetRef}
-        snapPoints={["60%"]}
-        index={-1}
-        enablePanDownToClose
-        backdropComponent={(p) => <BottomSheetBackdrop {...p} appearsOnIndex={0} disappearsOnIndex={-1} />}
-      >
-        <View style={{ padding: spacing.lg }}>
+      <Modal visible={paletteOpen} transparent animationType="slide" onRequestClose={() => setPaletteOpen(false)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setPaletteOpen(false)} testID="palette-backdrop" />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]} testID="palette-sheet">
+          <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>{t("Question Palette", "प्रश्न पैलेट")}</Text>
           <View style={styles.legend}>
             <LegendDot color={colors.success} label={t("Answered", "उत्तरित")} />
@@ -198,7 +193,7 @@ export default function Quiz() {
                 <Pressable
                   key={p.i}
                   testID={`palette-${p.i}`}
-                  onPress={() => { setIdx(p.i); sheetRef.current?.close(); }}
+                  onPress={() => { setIdx(p.i); setPaletteOpen(false); }}
                   style={[styles.paletteCell, { backgroundColor: bg, borderWidth: p.state === "unanswered" ? 1 : 0, borderColor: colors.borderStrong }]}
                 >
                   <Text style={[styles.paletteText, { color: fg }]}>{p.i + 1}</Text>
@@ -207,7 +202,7 @@ export default function Quiz() {
             })}
           </ScrollView>
         </View>
-      </BottomSheet>
+      </Modal>
 
       {confirmSubmit && (
         <View style={styles.modalBackdrop}>
@@ -266,6 +261,9 @@ const styles = StyleSheet.create({
   markBtnActive: { backgroundColor: colors.brandSecondary, borderColor: colors.brandSecondary },
   markText: { fontWeight: "700", color: colors.onSurface, fontSize: 13 },
   submitBtn: { backgroundColor: colors.brandSecondary, borderColor: colors.brandSecondary },
+  sheetBackdrop: { flex: 1, backgroundColor: "rgba(11,21,42,0.5)" },
+  sheet: { maxHeight: "65%", backgroundColor: colors.surface, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, marginBottom: spacing.md },
   sheetTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.md },
   legend: { flexDirection: "row", gap: spacing.lg, marginBottom: spacing.lg, flexWrap: "wrap" },
   paletteGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.xl },

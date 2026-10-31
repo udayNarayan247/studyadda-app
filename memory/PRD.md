@@ -18,8 +18,11 @@ Core practice + mock tests first; Emergent Google Auth (+ guest mode); in-app ro
 - Bookmarks, test history, Google auth + guest mode
 - Admin: stats, question list/filter/delete, add question form, CSV bulk upload
 - Tested: backend 21/21, frontend core flows pass
+- Store readiness: in-app Delete Account (DELETE /api/auth/account), Privacy Policy screen + hosted page at /api/privacy, $sample question selection, app.json (scheme studyadda, navy splash, ITSAppUsesNonExemptEncryption=false)
+- Upgraded Expo SDK 57 -> 58 (RN 0.88.1, React 19.3, expo-router 58). Fixed theme.ts types for RN Strict TS API; replaced @gorhom/bottom-sheet palette (broken on SDK 58) with RN Modal. Fixed review bookmark state, guest bookmarks prompt, chapter names on results. Backend 32/32 tests pass.
 
 ## Backlog
+- STORE BLOCKERS: replace default Emergent icon/splash with StudyAdda artwork; add Sign in with Apple (iOS Guideline 4.8); add contact email + effective date to privacy policy
 - P1: Verified real PYQ content; tag questions to exams/years/shifts; filter by year
 - P1: Admin edit question, verification/publish workflow, manage exams/chapters UI
 - P1: Performance analytics dashboard (trends, weak chapters)

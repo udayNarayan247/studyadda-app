@@ -1,4 +1,5 @@
-import { View, Text, Pressable, StyleSheet, Image } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "@react-native-vector-icons/ionicons";
 import { useAuth } from "@/src/auth-context";
@@ -7,6 +8,7 @@ import { colors, radii, spacing } from "@/src/theme";
 
 export default function Login() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { signInWithGoogle, signInAsGuest } = useAuth();
   const { t, lang, setLang } = useLang();
 
@@ -51,6 +53,9 @@ export default function Login() {
           {t("Sign in to sync bookmarks, test history and performance across devices.",
              "डिवाइसों में बुकमार्क, टेस्ट इतिहास और प्रदर्शन सिंक करने के लिए साइन इन करें।")}
         </Text>
+        <Pressable testID="login-privacy-link" onPress={() => router.push("/privacy")} hitSlop={8}>
+          <Text style={styles.privacyLink}>{t("Privacy Policy", "गोपनीयता नीति")}</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -73,4 +78,5 @@ const styles = StyleSheet.create({
   guestBtn: { borderWidth: 1, borderColor: colors.borderStrong, paddingVertical: 16, borderRadius: radii.md, alignItems: "center" },
   guestText: { color: colors.onSurface, fontWeight: "600", fontSize: 16 },
   footer: { fontSize: 12, color: colors.muted, textAlign: "center", marginTop: spacing.sm, lineHeight: 18 },
+  privacyLink: { fontSize: 12, color: colors.info, textAlign: "center", textDecorationLine: "underline" },
 });
